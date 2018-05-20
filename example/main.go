@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/krumbot/fsarchiver"
+	"github.com/krumbot/fsarchiver/pkg/archivemanager"
 	"github.com/krumbot/fsfileprocessor"
 )
 
@@ -20,10 +20,22 @@ func main() {
 		FileExt:              fe,
 	}
 
-	archiveErr := fsarchiver.Archive(crawlController)
+	errChannel := make(chan error, 1)
+	bm := archivemanager.BucketManager{
+		Root: "/Users/vikrum/Documents/ziptest/",
+	}
 
-	if archiveErr != nil {
-		fmt.Println(archiveErr)
+	err := bm.InitializeBuckets(2, errChannel)
+	if err != nil {
+		fmt.Println(err)
 		os.Exit(1)
+	}
+
+	processCb := func(walkinfo fsfileprocessor.WalkInfo) error {
+		err := bm.AddFileToBucket(walkinfo.Path)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 }
