@@ -11,14 +11,13 @@ import (
 
 //Bucket represents a zip sub-directory
 type Bucket struct {
-	Path    string
-	File    *os.File
-	Writer  *zip.Writer
-	Size    int64
-	Channel chan string
+	Path   string
+	File   *os.File
+	Writer *zip.Writer
+	Size   int64
 }
 
-func (bucket Bucket) addToBucket(filename string) error {
+func (bucket *Bucket) addToBucket(filename string) error {
 	fileToZip, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -72,25 +71,14 @@ func generateBucket(rootPath string, errChannel chan error) (Bucket, error) {
 	}
 
 	path := filepath.Join(rootPath, hash.String())
-	file, err := os.Create(path)
+	file, err := os.Create(path + ".zip")
 	if err != nil {
 		return Bucket{}, err
 	}
 
 	writer := zip.NewWriter(file)
 
-	channel := make(chan string)
-	newBucket := Bucket{path, file, writer, 0, channel}
-
-	go func() {
-		for filename := range channel {
-			err := newBucket.addToBucket(filename)
-			if err != nil {
-				errChannel <- err
-			}
-		}
-		close(channel)
-	}()
+	newBucket := Bucket{path, file, writer, 0}
 
 	return newBucket, nil
 }

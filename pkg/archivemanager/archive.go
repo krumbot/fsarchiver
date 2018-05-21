@@ -5,7 +5,7 @@ import (
 )
 
 // Archive consumes the Controller options and starts the archiving process.
-func Archive(crawlController fsfileprocessor.Controller, processCb func(fsfileprocessor.WalkInfo) error) error {
+func Archive(crawlController fsfileprocessor.Controller, processCb func(fsfileprocessor.WalkInfo)) error {
 
 	crawlConfig := fsfileprocessor.Crawler{
 		Processor:  generateProcessFunc(processCb),
@@ -20,14 +20,14 @@ func Archive(crawlController fsfileprocessor.Controller, processCb func(fsfilepr
 	return nil
 }
 
-func generateProcessFunc(processCb func(fsfileprocessor.WalkInfo) error) func(fileReceiver <-chan fsfileprocessor.WalkInfo, errorChannel chan<- error) error {
+func generateProcessFunc(processCb func(fsfileprocessor.WalkInfo)) func(fileReceiver <-chan fsfileprocessor.WalkInfo, errorChannel chan<- error) error {
 	process := func(fileReceiver <-chan fsfileprocessor.WalkInfo, errorChannel chan<- error) error {
 		for filewalkinfo := range fileReceiver {
-			err := processCb(filewalkinfo)
-			if err != nil {
-				return err
+			if !filewalkinfo.Info.IsDir() {
+				processCb(filewalkinfo)
 			}
 		}
+		close(errorChannel)
 		return nil
 	}
 
