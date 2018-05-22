@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jinzhu/copier"
 	"github.com/satori/go.uuid"
 )
 
@@ -28,13 +27,6 @@ func (bucket *Bucket) addToBucket(filename string, bm *BucketManager) error {
 	defer fileToZip.Close()
 
 	fileInfo, err := fileToZip.Stat()
-	if err != nil {
-		return err
-	}
-
-	infoClone := fileInfo
-	err = copier.Copy(&infoClone, &fileInfo)
-
 	if err != nil {
 		return err
 	}
