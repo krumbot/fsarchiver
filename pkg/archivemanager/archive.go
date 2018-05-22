@@ -1,11 +1,67 @@
 package archivemanager
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+
 	"github.com/krumbot/fsfileprocessor"
 )
 
 // Archive consumes the Controller options and starts the archiving process.
-func Archive(crawlController fsfileprocessor.Controller, processCb func(fsfileprocessor.WalkInfo)) error {
+func Archive(crawlController fsfileprocessor.Controller, root string, numBuckets int) error {
+	errChannel := make(chan error, 1)
+	bm := BucketManager{
+		Root: root,
+	}
+
+	err := bm.InitializeBuckets(numBuckets, errChannel)
+
+	if err != nil {
+		return err
+	}
+
+	processCb := func(walkinfo fsfileprocessor.WalkInfo) {
+		bm.AddFileToBucket(walkinfo.Path)
+	}
+
+	go func() {
+		err = <-errChannel
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}()
+
+	err = archive(crawlController, processCb)
+
+	if err != nil {
+		return err
+	}
+
+	jsonData, err := json.Marshal(bm.Record)
+	if err != nil {
+		return err
+	}
+
+	_, err = bm.RecordStore.Write(jsonData)
+	if err != nil {
+		return err
+	}
+
+	err = bm.CloseBuckets()
+
+	if err != nil {
+		return err
+	}
+
+	for _, bucket := range bm.Buckets {
+		fmt.Println("Uncompressed Size for bucket" + bucket.Path + ": " + string(bucket.Size))
+	}
+	return nil
+}
+
+func archive(crawlController fsfileprocessor.Controller, processCb func(fsfileprocessor.WalkInfo)) error {
 
 	crawlConfig := fsfileprocessor.Crawler{
 		Processor:  generateProcessFunc(processCb),

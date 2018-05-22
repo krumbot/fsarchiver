@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -12,67 +11,19 @@ import (
 )
 
 func main() {
-	fe, _ := regexp.Compile(".(xml)")
+	fe, _ := regexp.Compile(".(json)")
 
 	crawlController := fsfileprocessor.Controller{
-		Rootdir:              "your-test-src",
+		Rootdir:              "your-src-dir",
 		Recursive:            true,
 		EarliestTimeModified: time.Date(2016, time.May, 15, 0, 0, 0, 0, time.UTC),
 		FileExt:              fe,
 	}
 
-	errChannel := make(chan error, 1)
-	bm := archivemanager.BucketManager{
-		Root: "your-test-dest",
-	}
-
-	err := bm.InitializeBuckets(2, errChannel)
+	err := archivemanager.Archive(crawlController, "your-output-dir", 5)
 
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	processCb := func(walkinfo fsfileprocessor.WalkInfo) {
-		bm.AddFileToBucket(walkinfo.Path)
-	}
-
-	go func() {
-		err = <-errChannel
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	}()
-
-	err = archivemanager.Archive(crawlController, processCb)
-
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	jsonData, err := json.Marshal(bm.Record)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	_, err = bm.RecordStore.Write(jsonData)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	err = bm.CloseBuckets()
-
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	for _, bucket := range bm.Buckets {
-		fmt.Println(bucket.Size)
-	}
-
 }
