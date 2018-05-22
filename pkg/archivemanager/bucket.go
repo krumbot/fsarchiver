@@ -12,7 +12,7 @@ import (
 
 //Bucket represents a zip sub-directory
 type Bucket struct {
-	Path   string
+	Name   string
 	File   *os.File
 	Writer *zip.Writer
 	Size   int64
@@ -59,11 +59,35 @@ func (bucket *Bucket) addToBucket(filename string, bm *BucketManager) error {
 		return err
 	}
 
-	bm.Record[hash.String()] = filename
+	bm.Record[bucket.Name][filename] = hash.String()
 
 	bucket.Size += copySize
 
 	return nil
+}
+
+func openExistingBucket(root string, name string) (Bucket, error) {
+	var size int64
+
+	path := filepath.Join(root, name) + ".zip"
+	file, err := os.Open(path)
+
+	if err != nil {
+		return Bucket{}, err
+	}
+
+	reader, err := zip.OpenReader(path)
+
+	if err != nil {
+		return Bucket{}, err
+	}
+
+	for _, f := range reader.File {
+		size += int64(f.UncompressedSize64)
+	}
+
+	bucket := Bucket{Name: name, File: file, Size: size}
+	return bucket, nil
 }
 
 func generateBuckets(rootPath string, num int, errChannel chan error) ([]Bucket, error) {
@@ -94,7 +118,7 @@ func generateBucket(rootPath string, errChannel chan error) (Bucket, error) {
 
 	writer := zip.NewWriter(file)
 
-	newBucket := Bucket{path, file, writer, 0}
+	newBucket := Bucket{hash.String(), file, writer, 0}
 
 	return newBucket, nil
 }

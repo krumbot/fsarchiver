@@ -10,6 +10,8 @@ import (
 
 // Archive consumes the Controller options and starts the archiving process.
 func Archive(crawlController fsfileprocessor.Controller, root string, numBuckets int) error {
+	var compressedSize int64
+
 	errChannel := make(chan error, 1)
 	bm := BucketManager{
 		Root: root,
@@ -56,8 +58,11 @@ func Archive(crawlController fsfileprocessor.Controller, root string, numBuckets
 	}
 
 	for _, bucket := range bm.Buckets {
-		fmt.Println("Uncompressed Size for bucket" + bucket.Path + ": " + string(bucket.Size))
+		compressedSize += bucket.Size
 	}
+
+	fmt.Println("Compression Size: ", compressedSize)
+
 	return nil
 }
 
