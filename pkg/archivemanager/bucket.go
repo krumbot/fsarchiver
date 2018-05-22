@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jinzhu/copier"
 	"github.com/satori/go.uuid"
 )
 
@@ -17,7 +18,8 @@ type Bucket struct {
 	Size   int64
 }
 
-func (bucket *Bucket) addToBucket(filename string) error {
+func (bucket *Bucket) addToBucket(filename string, bm *BucketManager) error {
+
 	fileToZip, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -30,14 +32,25 @@ func (bucket *Bucket) addToBucket(filename string) error {
 		return err
 	}
 
-	fileHeader, err := zip.FileInfoHeader(fileInfo)
+	infoClone := fileInfo
+	err = copier.Copy(&infoClone, &fileInfo)
+
 	if err != nil {
 		return err
 	}
 
-	fileHeader.Method = zip.Deflate
+	hash, err := uuid.NewV4()
+	if err != nil {
+		return err
+	}
 
-	writer, err := bucket.Writer.CreateHeader(fileHeader)
+	fileHeader := zip.FileHeader{
+		Name:     hash.String(),
+		Method:   zip.Deflate,
+		Modified: fileInfo.ModTime(),
+	}
+
+	writer, err := bucket.Writer.CreateHeader(&fileHeader)
 	if err != nil {
 		return err
 	}
@@ -46,7 +59,10 @@ func (bucket *Bucket) addToBucket(filename string) error {
 		return err
 	}
 
+	bm.Record[hash.String()] = filename
+
 	bucket.Size += copySize
+
 	return nil
 }
 

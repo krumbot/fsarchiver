@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -14,7 +15,7 @@ func main() {
 	fe, _ := regexp.Compile(".(xml)")
 
 	crawlController := fsfileprocessor.Controller{
-		Rootdir:              "/Users/vikrum/Documents/zipsrc",
+		Rootdir:              "your-test-src",
 		Recursive:            true,
 		EarliestTimeModified: time.Date(2016, time.May, 15, 0, 0, 0, 0, time.UTC),
 		FileExt:              fe,
@@ -22,7 +23,7 @@ func main() {
 
 	errChannel := make(chan error, 1)
 	bm := archivemanager.BucketManager{
-		Root: "/Users/vikrum/Documents/ziptest/",
+		Root: "your-test-dest",
 	}
 
 	err := bm.InitializeBuckets(2, errChannel)
@@ -45,6 +46,19 @@ func main() {
 	}()
 
 	err = archivemanager.Archive(crawlController, processCb)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	jsonData, err := json.Marshal(bm.Record)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	_, err = bm.RecordStore.Write(jsonData)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -58,7 +72,7 @@ func main() {
 	}
 
 	for _, bucket := range bm.Buckets {
-		fmt.Println(int(bucket.Size) / 1000)
+		fmt.Println(bucket.Size)
 	}
 
 }

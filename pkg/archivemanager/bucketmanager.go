@@ -27,6 +27,9 @@ func (m *BucketManager) InitializeBuckets(numBuckets int, errChannel chan error)
 	if err != nil {
 		return nil
 	}
+
+	m.Record = make(map[string]string)
+
 	return nil
 }
 
@@ -71,5 +74,5 @@ func (m *BucketManager) selectSmallestBucket() *Bucket {
 //AddFileToBucket adds a file to the bucket
 func (m *BucketManager) AddFileToBucket(filename string) {
 	smallestBucket := m.selectSmallestBucket()
-	smallestBucket.addToBucket(filename)
+	smallestBucket.addToBucket(filename, m)
 }
