@@ -1,7 +1,9 @@
 package archivemanager
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -41,6 +43,47 @@ func (m *BucketManager) InitializeBuckets(numBuckets int, errChannel chan error)
 	return nil
 }
 
+//RetrieveFile is meant to find the correct bucket for a file, fetch it, and return it
+func (m *BucketManager) RetrieveFile(filename string) (*bytes.Buffer, error) {
+	bucket, lookup, err := m.fileBucketLookup(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	fileContent, err := bucket.fetchFile(lookup)
+	if err != nil {
+		return nil, err
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(fileContent)
+	return buf, nil
+}
+
+func (m *BucketManager) fileBucketLookup(filename string) (Bucket, string, error) {
+	for bucketName := range m.Record {
+		lookupValue := m.Record[bucketName][filename]
+		if lookupValue != "" {
+			bucket, err := m.fetchBucket(bucketName)
+			if err != nil {
+				return Bucket{}, "", err
+			}
+
+			return bucket, lookupValue, nil
+		}
+	}
+
+	return Bucket{}, "", errors.New("No bucket was found containing file: " + filename)
+}
+
+func (m *BucketManager) fetchBucket(bucketName string) (Bucket, error) {
+	for _, bucket := range m.Buckets {
+		if bucket.Name == bucketName {
+			return bucket, nil
+		}
+	}
+	return Bucket{}, errors.New("Invalid bucket lookup by bucket name: bucket " + bucketName + "was not found.")
+}
+
 //OpenExistingRecordStore opens existing bucket store data
 func (m *BucketManager) OpenExistingRecordStore() error {
 	bucketStore := filepath.Join(m.Root, bucketStoreFilename)
@@ -48,6 +91,7 @@ func (m *BucketManager) OpenExistingRecordStore() error {
 	record := make(map[string]map[string]string)
 
 	jsonContent, err := ioutil.ReadFile(bucketStore)
+
 	if err != nil {
 		return err
 	}

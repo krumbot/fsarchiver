@@ -2,6 +2,7 @@ package archivemanager
 
 import (
 	"archive/zip"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ type Bucket struct {
 	File   *os.File
 	Writer *zip.Writer
 	Size   int64
+	Reader *zip.ReadCloser
 }
 
 func (bucket *Bucket) addToBucket(filename string, bm *BucketManager) error {
@@ -78,7 +80,7 @@ func openExistingBucket(root string, name string) (Bucket, error) {
 		size += int64(f.UncompressedSize64)
 	}
 
-	bucket := Bucket{Name: name, File: file, Size: size}
+	bucket := Bucket{Name: name, File: file, Size: size, Reader: reader}
 	return bucket, nil
 }
 
@@ -110,7 +112,27 @@ func generateBucket(rootPath string, errChannel chan error) (Bucket, error) {
 
 	writer := zip.NewWriter(file)
 
-	newBucket := Bucket{hash.String(), file, writer, 0}
+	reader, err := zip.OpenReader(path)
+
+	if err != nil {
+		return Bucket{}, err
+	}
+
+	newBucket := Bucket{hash.String(), file, writer, 0, reader}
 
 	return newBucket, nil
+}
+
+func (bucket *Bucket) fetchFile(lookup string) (io.ReadCloser, error) {
+	for _, f := range bucket.Reader.File {
+		if f.Name == lookup {
+			fileContent, err := f.Open()
+
+			if err != nil {
+				return nil, err
+			}
+			return fileContent, nil
+		}
+	}
+	return nil, errors.New("Could not find file with index " + lookup + "in bucket " + bucket.Name)
 }
